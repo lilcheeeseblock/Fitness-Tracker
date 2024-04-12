@@ -1,0 +1,62 @@
+import sqlite3
+
+def setup_database():
+    try:
+        conn = sqlite3.connect('fitness_tracker.db')
+        cursor = conn.cursor()
+        cursor.execute('''CREATE TABLE IF NOT EXISTS meals (
+                            id INTEGER PRIMARY KEY,
+                            name TEXT,
+                            calories REAL,
+                            protein REAL,
+                            carbs REAL,
+                            fats REAL,
+                            logged_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        )''')
+
+        cursor.execute('''CREATE TABLE IF NOT EXISTS workouts (
+                            id INTEGER PRIMARY KEY,
+                            date TEXT,
+                            total_calories_burned REAL
+                        )''')
+
+        cursor.execute('''CREATE TABLE IF NOT EXISTS workout_exercises (
+                            id INTEGER PRIMARY KEY,
+                            workout_id INTEGER,
+                            name TEXT,
+                            duration INTEGER,
+                            calories_burned REAL,
+                            FOREIGN KEY (workout_id) REFERENCES workouts(id)
+                        )''')
+
+        cursor.execute('''CREATE TABLE IF NOT EXISTS recipes (
+                            id INTEGER PRIMARY KEY,
+                            name TEXT,
+                            ingredients TEXT,
+                            calories REAL,
+                            protein REAL,
+                            carbs REAL,
+                            fats REAL
+                        )''')
+
+        cursor.execute('''CREATE TABLE IF NOT EXISTS weight_history (
+                            id INTEGER PRIMARY KEY,
+                            date TEXT,
+                            weight REAL
+                        )''')
+
+        cursor.execute('''CREATE TABLE IF NOT EXISTS goal_information (
+                            id INTEGER PRIMARY KEY,
+                            current_weight REAL,
+                            goal_weight REAL,
+                            goal_protein_ratio REAL,
+                            calories_difference REAL,
+                            protein_difference REAL
+                        )''')
+
+        conn.commit()
+        print("Database setup completed successfully!")
+    except sqlite3.Error as e:
+        print("Error setting up the database:", e)
+    finally:
+        conn.close()
