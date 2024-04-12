@@ -1,0 +1,35 @@
+def main_menu():
+    while True:
+        print("Fitness Tracker Main Menu")
+        print("1. Log Meal")
+        print("2. Log Workout")
+        print("3. View Recipes")
+        print("4. Log Weight")
+        print("5. View Weight History")
+        print("6. Calculate Difference in Calories and Proteins for Goal Weight")
+        print("7. View Meals")
+        print("8. Log Recipe")
+        print("9. Exit")
+
+        choice = input("Enter your choice: ")
+        if choice == '1':
+            log_meal()
+        elif choice == '2':
+            log_workout()
+        elif choice == '3':
+            view_recipes()
+        elif choice == '4':
+            log_weight()
+        elif choice == '5':
+            view_weight_history()
+        elif choice == '6':
+            calculate_goal_difference()
+        elif choice == '7':
+            view_meals()
+        elif choice == '8':
+            log_recipe()
+        elif choice == '9':
+            print("Exiting program...")
+            exit()
+        else:
+            print("Invalid choice. Please try again.")
