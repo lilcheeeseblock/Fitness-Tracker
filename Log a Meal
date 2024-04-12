@@ -1,0 +1,130 @@
+# Function to log a meal
+def log_meal():
+    print("Log Meal:")
+    meal_name = input("Enter the name of the meal: ")  # Prompt user to enter meal name
+    while True:
+        print("1. Use Existing Recipe")
+        print("2. Create New Recipe")
+        choice = input("Enter your choice: ")
+
+        if choice == '1':
+            # Use Existing Recipe
+            view_recipes()
+            recipe_id = input("Enter the ID of the recipe you want to use: ")
+            # Retrieve the selected recipe from the database
+            recipe = get_recipe_by_id(recipe_id)
+            if recipe:
+                save_meal(meal_name, recipe, datetime.date.today())  # Pass meal name and current date
+                break
+            else:
+                print("Recipe not found.")
+        elif choice == '2':
+            # Create New Recipe
+            recipe = create_new_recipe()
+            if recipe:
+                save_meal(meal_name, recipe, datetime.date.today())  # Pass meal name and current date
+                break
+        else:
+            print("Invalid choice. Please enter '1' or '2'.")
+
+def save_meal(meal_name, recipe, logged_at):
+    try:
+        conn = sqlite3.connect('fitness_tracker.db')
+        cursor = conn.cursor()
+
+        cursor.execute('''
+            INSERT INTO meals (name, meal_name, calories, protein, carbs, fats, logged_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (recipe[0], meal_name, *recipe[2:], logged_at))  # Pass meal name along with recipe details
+
+        conn.commit()
+        print("Meal logged successfully!")
+    except sqlite3.Error as e:
+        print("Error logging meal:", e)
+    finally:
+        conn.close()
+
+def get_recipe_by_id(recipe_id):
+    # Connect to the database
+    conn = sqlite3.connect('fitness_tracker.db')
+    cursor = conn.cursor()
+    
+    # Retrieve the selected recipe from the database
+    cursor.execute('''
+        SELECT * FROM recipes WHERE id = ?
+    ''', (recipe_id,))
+    recipe = cursor.fetchone()
+    
+    conn.close()
+    return recipe
+
+def create_new_recipe():
+    name = input("Enter the name of the new recipe: ")
+    ingredients = input("Enter the ingredients (separated by commas): ").split(',')
+    # Fetch nutritional information for each ingredient
+    ingredients_info = []
+    for ingredient in ingredients:
+        ingredient_info = fetch_nutritional_info(ingredient.strip())
+        if ingredient_info:
+            ingredients_info.append(ingredient_info)
+        else:
+            print(f"Could not find nutritional information for {ingredient.strip()}. Skipping.")
+            return None
+    # Calculate total nutritional information for the recipe
+    total_calories = sum(ingredient_info.get('calories', 0) for ingredient_info in ingredients_info)
+    total_protein = sum(ingredient_info.get('protein', 0) for ingredient_info in ingredients_info)
+    total_carbs = sum(ingredient_info.get('carbs', 0) for ingredient_info in ingredients_info)
+    total_fats = sum(ingredient_info.get('fat', 0) for ingredient_info in ingredients_info)
+    
+    # Return the recipe details
+    return (name, ','.join(ingredients), total_calories, total_protein, total_carbs, total_fats)
+
+def fetch_nutritional_info(ingredient):
+    try:
+        api_key = config.API_KEY
+        api_url = f"https://api.nal.usda.gov/fdc/v1/foods/search?api_key={api_key}&query={ingredient}"
+        
+        response = requests.get(api_url)
+        response.raise_for_status()
+
+        data = response.json()
+        if 'foods' in data and data['foods']:
+            food_item = data['foods'][0]
+            nutritional_info = {
+                'calories': food_item['foodNutrients'][3]['value'],
+                'protein': food_item['foodNutrients'][0]['value'],
+                'carbs': food_item['foodNutrients'][1]['value'],
+                'fat': food_item['foodNutrients'][2]['value']
+            }
+            return nutritional_info
+        else:
+            return f"No nutritional information found for {ingredient}."
+    except requests.RequestException as e:
+        return f"Error fetching nutritional information for {ingredient}: {e}"
+    except (KeyError, IndexError) as e:
+        return f"Error parsing nutritional information for {ingredient}: {e}"
+
+# Function to view logged meals
+def view_meals():
+    # Connect to the database
+    conn = sqlite3.connect('fitness_tracker.db')
+    cursor = conn.cursor()
+
+    # Retrieve logged meals from the database
+    cursor.execute('''
+        SELECT * FROM meals
+    ''')
+    meals = cursor.fetchall()
+
+    # Check if there are any logged meals
+    if not meals:
+        print("No meals logged yet.")
+        return
+
+    # Display the logged meals
+    print("Logged Meals:")
+    print("ID\tName\tCalories\tProtein\tCarbs\tFats")
+    for meal in meals:
+        print(f"{meal[0]}\t{meal[1]}\t{meal[2]}\t{meal[3]}\t{meal[4]}\t{meal[5]}")
+
+    conn.close()
