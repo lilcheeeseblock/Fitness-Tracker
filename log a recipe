@@ -1,0 +1,108 @@
+# Function to view saved recipes
+def view_recipes():
+    try:
+        # Connect to the database
+        conn = sqlite3.connect('fitness_tracker.db')
+        cursor = conn.cursor()
+        try:
+            # Retrieve recipes from the database
+            cursor.execute('''
+                SELECT id, name FROM recipes
+            ''')
+            recipes = cursor.fetchall()
+
+            # Check if there are any recipes
+            if not recipes:
+                print("No recipes found.")
+                return
+
+            # Display the list of recipes
+            print("Recipes:")
+            for recipe in recipes:
+                print(f"{recipe[0]}. {recipe[1]}")
+
+            # Prompt user to select a recipe for detailed view
+            recipe_id = input("Enter the ID of the recipe you want to view, or type 'back' to return to the main menu: ")
+
+            if recipe_id.lower() == 'back':
+                return
+
+            # Retrieve the selected recipe from the database
+            cursor.execute('''
+                SELECT * FROM recipes WHERE id = ?
+            ''', (recipe_id,))
+            selected_recipe = cursor.fetchone()
+
+            # Check if the recipe exists
+            if selected_recipe:
+                print("\nSelected Recipe:")
+                print(f"Name: {selected_recipe[1]}")
+                print("Ingredients:")
+                print(selected_recipe[2])
+                print("Nutritional Information:")
+                print(f"Calories: {selected_recipe[3]}")
+                print(f"Protein: {selected_recipe[4]}")
+                print(f"Carbs: {selected_recipe[5]}")
+                print(f"Fats: {selected_recipe[6]}")
+            else:
+                print("Recipe not found.")
+        except sqlite3.Error as e:
+            print("Error fetching recipes:", e)
+        finally:
+            conn.close()
+    except sqlite3.Error as e:
+        print("Error connecting to the database:", e)
+
+# Function to log/add a recipe
+def log_recipe():
+    try:
+        name = input("Enter the name of the recipe: ")
+
+        # Validate name
+        if not name:
+            print("Recipe name cannot be empty.")
+            return
+
+        ingredients_input = input("Enter the ingredients (separated by commas): ")
+        ingredients = [ingredient.strip() for ingredient in ingredients_input.split(',') if ingredient.strip()]
+
+        # Validate ingredients
+        if not ingredients:
+            print("Please provide at least one ingredient.")
+            return
+
+        # Fetch nutritional information for each ingredient
+        ingredients_info = []
+        for ingredient in ingredients:
+            ingredient_info = fetch_nutritional_info(ingredient)
+            if ingredient_info:
+                ingredients_info.append(ingredient_info)
+            else:
+                print(f"Could not find nutritional information for {ingredient}. Please try again.")
+                return
+
+        # Calculate total nutritional information for the recipe
+        total_calories = sum(ingredient_info.get('calories', 0) for ingredient_info in ingredients_info)
+        total_protein = sum(ingredient_info.get('protein', 0) for ingredient_info in ingredients_info)
+        total_carbs = sum(ingredient_info.get('carbs', 0) for ingredient_info in ingredients_info)
+        total_fats = sum(ingredient_info.get('fat', 0) for ingredient_info in ingredients_info)
+
+        # Connect to the database
+        try:
+            conn = sqlite3.connect('fitness_tracker.db')
+            cursor = conn.cursor()
+
+            # Insert the recipe into the recipes table
+            cursor.execute('''
+                INSERT INTO recipes (name, ingredients, calories, protein, carbs, fats)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (name, ','.join(ingredients), total_calories, total_protein, total_carbs, total_fats))
+
+            conn.commit()
+            print("Recipe logged successfully!")
+        except sqlite3.Error as e:
+            print("Error logging recipe:", e)
+        finally:
+            conn.close()
+    except ValueError as e:
+        print("Error:", e)
