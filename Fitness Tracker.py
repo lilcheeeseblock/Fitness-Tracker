@@ -3,7 +3,7 @@ import datetime
 import requests
 import config
 
-# Modify the setup_database function with enhanced error handling
+#Create the Database with error validation
 def setup_database():
     try:
         conn = sqlite3.connect('fitness_tracker.db')
