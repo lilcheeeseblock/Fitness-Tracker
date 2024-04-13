@@ -1,0 +1,84 @@
+# Function to retrieve MET value of an exercise from an API
+def get_met_from_api(exercise_name):
+    # Construct the API URL to search for the exercise by name
+    url = f"https://wger.de/api/v2/exercise/?name={exercise_name}"
+    # Send a GET request to the API
+    response = requests.get(url)
+    # Check if the request was successful (status code 200)
+    if response.status_code == 200:
+        # Parse the JSON response
+        data = response.json()
+        # Check if any exercises match the provided name
+        if data["count"] > 0:
+            # Retrieve the first exercise (assuming it's the most relevant)
+            exercise = data["results"][0]
+            # Return the MET value of the exercise
+            return exercise["met"]
+    return None
+
+# Function to calculate calories burned during an exercise
+def calculate_calories_burned(exercise_name, weight_kg, sets, reps_per_set):
+    try:
+        met_value = get_met_from_api(exercise_name)
+        if met_value is not None:
+            total_reps = sets * reps_per_set
+            total_duration_minutes = total_reps * 10 / 60
+            calories_burned_per_minute = met_value * weight_kg * (3.5 / 200)
+            total_calories_burned = calories_burned_per_minute * total_duration_minutes
+            return total_calories_burned
+        else:
+            return "Exercise not found."
+    except Exception as e:
+        return f"Error calculating calories burned: {e}"
+
+# Function to log a workout, including multiple exercises
+def log_workout():
+    print("Log Workout:")
+    total_calories_burned = 0
+    exercise_details = []
+
+    while True:
+        exercise_name = input("Enter the name of the exercise (or type 'done' to finish): ")
+        if exercise_name.lower() == 'done':
+            break
+        weight_kg = float(input("Enter your weight in kilograms: "))
+        sets = int(input("Enter the number of sets: "))
+        reps_per_set = int(input("Enter the number of reps per set: "))
+
+        calories_burned = calculate_calories_burned(exercise_name, weight_kg, sets, reps_per_set)
+        if isinstance(calories_burned, str):  # Check if calories_burned is an error message
+            print(calories_burned)
+            continue
+
+        exercise_details.append((exercise_name, sets * reps_per_set, calories_burned))
+        total_calories_burned += calories_burned
+
+    log_workout_to_database(exercise_details, total_calories_burned)
+
+# Function to log the workout details into the database
+def log_workout_to_database(exercise_details, total_calories_burned):
+    try:
+        conn = sqlite3.connect('fitness_tracker.db')
+        cursor = conn.cursor()
+
+        # Start a transaction
+        conn.execute('BEGIN TRANSACTION')
+        
+        try:
+            # Insert total calories burned for the workout into the database
+            cursor.execute("INSERT INTO workouts (date, total_calories_burned) VALUES (?, ?)", (datetime.date.today(), total_calories_burned))
+            workout_id = cursor.lastrowid
+
+            # Insert exercise details into the database with the associated workout ID
+            for exercise in exercise_details:
+                cursor.execute("INSERT INTO workout_exercises (workout_id, name, duration, calories_burned) VALUES (?, ?, ?, ?)", (workout_id, *exercise))
+
+            conn.commit()
+            print("Workout logged successfully!")
+        except sqlite3.Error as e:
+            print("Error logging workout:", e)
+            conn.rollback()  # Rollback the transaction in case of an error
+        finally:
+            conn.close()
+    except sqlite3.Error as e:
+        print("Error connecting to the database:", e)
