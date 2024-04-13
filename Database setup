@@ -1,5 +1,3 @@
-import sqlite3
-
 def setup_database():
     try:
         conn = sqlite3.connect('fitness_tracker.db')
